@@ -1,54 +1,52 @@
 import java.io.IOException;
 import java.net.*;
-import java.util.ArrayList;
-
-public class GBNClient {
-    private Time time;
-    private Timer timer;
+public class GBNClient implements Runnable {
     private int port = 80;
     private DatagramSocket datagramSocket;
-    private int nextFileSeq=1;
-    private int baseFileSeq=1;
-    //设为1则为停等协议
-    private int windowsWidth=3;
+    private DatagramPacket datagramPacket;
+    private int exceptedSeq=1;
 
-    public GBNClient() throws IOException {
-        //初始化
-        this.datagramSocket=new DatagramSocket();
-        //构造要发送的文件
-        ArrayList<byte[]> file = new ArrayList<>();
-        for(int i=0;i<10;i++){
-            String context = "This is file with index "+i;
-            file.add(context.getBytes());
-        }
-        //初始化计时器
-        this.time = new Time();
-        this.timer = new Timer(this.time,this);
-        //开始计时
-        this.timer.start();
-        while(true) {
-            sendWindow(file);
-        }
-
-    }
-
-    private void send(byte[] data) throws IOException {
-        InetAddress inetAddress = InetAddress.getLocalHost();
-        DatagramPacket datagramPacket = new DatagramPacket(data,data.length,inetAddress,this.port);
+    private void sendACK(int ack) throws IOException {
+        String ack_s = "ack:"+ack;
+        byte[] data = ack_s.getBytes();
+        InetAddress inetAddress = this.datagramPacket.getAddress();
+        int port_=this.datagramPacket.getPort();
+        datagramPacket = new DatagramPacket(data,data.length,inetAddress,port_);
         datagramSocket.send(datagramPacket);
     }
 
-    private void sendWindow(ArrayList<byte[]> fileList) throws IOException {
-        while(nextFileSeq<baseFileSeq+windowsWidth && nextFileSeq<=10){
-            send(fileList.get(nextFileSeq));
-            nextFileSeq++;
+    @Override
+    public void run() {
+        try{
+            datagramSocket = new DatagramSocket(this.port);
+            System.out.println("客户端：开始接收");
+            int counter=1;
+            while (true) {
+                byte[] receivedData = new byte[4096];
+                datagramPacket = new DatagramPacket(receivedData, receivedData.length);
+                datagramSocket.receive(datagramPacket);
+                //实际收到的数据
+                String received = new String(receivedData, 0, receivedData.length);
+                System.out.println("客户端：接收到数据：\n"+received);
+                //如果收到了预期的数据，则发送ACK
+                if (Integer.parseInt(received.substring(received.indexOf("编号:") + 3).trim()) == exceptedSeq) {
+                    //模拟ack丢失
+                    if(counter%3!=0){
+                        System.out.println("客户端：发送ACK："+exceptedSeq);
+                        sendACK(exceptedSeq);
+                        exceptedSeq++;
+                    }
+                    //当超时的时候，阻塞3s，服务器端阈值为1s，ack超时
+                    else {
+                        System.out.println("客户端：超时");
+                        Thread.sleep(3000);
+                    }
+                }
+                //否则不进行操作
+                counter++;
+            }
+        } catch (IOException | InterruptedException e) {
+            e.printStackTrace();
         }
-    }
-
-    public void timeOut(){
-        /*
-          处理超时
-         */
-
     }
 }
