@@ -4,7 +4,12 @@ public class GBNClient implements Runnable {
     private int port = 80;
     private DatagramSocket datagramSocket;
     private DatagramPacket datagramPacket;
-    private int exceptedSeq=1;
+    private int exceptedSeq=0;
+
+    public GBNClient() throws SocketException, UnknownHostException {
+        datagramSocket = new DatagramSocket(this.port,InetAddress.getLocalHost());
+        System.out.println("客户端：开始接收");
+    }
 
     private void sendACK(int ack) throws IOException {
         String ack_s = "ack:"+ack;
@@ -18,8 +23,6 @@ public class GBNClient implements Runnable {
     @Override
     public void run() {
         try{
-            datagramSocket = new DatagramSocket(this.port);
-            System.out.println("客户端：开始接收");
             int counter=1;
             while (true) {
                 byte[] receivedData = new byte[4096];
@@ -30,6 +33,7 @@ public class GBNClient implements Runnable {
                 System.out.println("客户端：接收到数据：\n"+received);
                 //如果收到了预期的数据，则发送ACK
                 if (Integer.parseInt(received.substring(received.indexOf("编号:") + 3).trim()) == exceptedSeq) {
+                    /*
                     //模拟ack丢失
                     if(counter%3!=0){
                         System.out.println("客户端：发送ACK："+exceptedSeq);
@@ -41,11 +45,16 @@ public class GBNClient implements Runnable {
                         System.out.println("客户端：超时");
                         Thread.sleep(3000);
                     }
+                    */
+
+                    sendACK(exceptedSeq);
+                    exceptedSeq++;
+
                 }
                 //否则不进行操作
                 counter++;
             }
-        } catch (IOException | InterruptedException e) {
+        } catch (IOException e) {
             e.printStackTrace();
         }
     }

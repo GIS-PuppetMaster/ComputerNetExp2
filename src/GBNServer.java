@@ -34,7 +34,7 @@ public class GBNServer implements Runnable{
     }
 
     private boolean sendWindow() throws IOException {
-        while (nextFileSeq < baseFileSeq + windowsWidth && nextFileSeq <= 10) {
+        while (nextFileSeq < baseFileSeq + windowsWidth && nextFileSeq < 9) {
             System.out.println("服务器：发送文件窗口内容："+new String(fileList.get(nextFileSeq)));
             send(fileList.get(nextFileSeq));
             nextFileSeq++;
@@ -45,13 +45,13 @@ public class GBNServer implements Runnable{
     }
 
     private void resendWindow(int ack) throws IOException{
-        baseFileSeq =ack+1;
+        baseFileSeq = ack+1;
         nextFileSeq = baseFileSeq;
         sendWindow();
     }
 
     public void sendFile() throws IOException, InterruptedException {
-        int ack=1;
+        int ack=-1;
         while(sendWindow()){
             //接收ACk
             System.out.println("服务器：接收ACK");
@@ -59,6 +59,7 @@ public class GBNServer implements Runnable{
             datagramPacket = new DatagramPacket(bytes, bytes.length);
             //开一个新线程，以阻塞的方式等待接收ack
             Thread thread = new Thread(new ReceiveThread(datagramPacket,datagramSocket));
+            thread.start();
             String fromServer="";
             //检测是否接收到ack
             //检测是否超时
@@ -73,19 +74,21 @@ public class GBNServer implements Runnable{
                 if(fromServer.indexOf("ack:")!=-1){
                     break;
                 }
-                Thread.sleep(2000);
+                //Thread.sleep(2000);
             }
             ack = Integer.parseInt(fromServer.substring(fromServer.indexOf("ack:") + 4).trim());
             System.out.println("服务器：接收到ACK："+ack);
+            if(ack==8){
+                System.out.println("文件传输完成");
+                System.exit(0);
+            }
+            baseFileSeq = ack + 1;
             //检查ack
             if (baseFileSeq != nextFileSeq+1){
                 //发生错误
-                System.out.println("服务器：ack错误，收到的消息为："+fromServer+"ack为:"+ack+"，重新发送");
+                System.out.println("服务器：ack错误，收到的消息为："+fromServer+"期望ack为:"+(nextFileSeq)+"，重新发送");
                 //重新发送
                 resendWindow(ack);
-            }
-            else{
-                baseFileSeq = ack + 1;
             }
         }
     }
