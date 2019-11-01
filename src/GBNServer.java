@@ -57,36 +57,42 @@ public class GBNServer implements Runnable{
             System.out.println("服务器：接收ACK");
             byte[] bytes = new byte[4096];
             datagramPacket = new DatagramPacket(bytes, bytes.length);
-            //开一个新线程，以阻塞的方式等待接收ack
-            Thread thread = new Thread(new ReceiveThread(datagramPacket,datagramSocket));
-            thread.start();
-            String fromServer="";
+            String fromClient="";
             //检测是否接收到ack
             //检测是否超时
             long start = System.currentTimeMillis();
-            while(true) {
-                if(System.currentTimeMillis()-start>=1000){
-                    //如果超时，重新发送
-                    System.out.println("服务器：ACK超时，重新发送文件");
-                    resendWindow(ack);
-                }
-                fromServer = new String(bytes, 0, bytes.length);
-                if(fromServer.indexOf("ack:")!=-1){
+            //等待接收ack
+            while(true){
+                if(System.currentTimeMillis()-start>=2000) {
                     break;
                 }
-                //Thread.sleep(2000);
-            }
-            ack = Integer.parseInt(fromServer.substring(fromServer.indexOf("ack:") + 4).trim());
-            System.out.println("服务器：接收到ACK："+ack);
-            if(ack==8){
-                System.out.println("文件传输完成");
-                System.exit(0);
+                datagramSocket.setSoTimeout(1);
+                try {
+                    datagramSocket.receive(datagramPacket);
+                }
+                catch (SocketTimeoutException e){
+
+                }
+
+                fromClient = new String(bytes, 0, bytes.length);
+                if (fromClient.indexOf("ack:")!=-1){
+                    int temp_ack = Integer.parseInt(fromClient.substring(fromClient.indexOf("ack:") + 4).trim());
+                    if(temp_ack>ack) {
+                        ack = temp_ack;
+                        System.out.println("最高ACK："+temp_ack);
+                    }
+                }
+                if(ack==8){
+                    System.out.println("文件传输完成");
+                    System.exit(0);
+                }
+
             }
             baseFileSeq = ack + 1;
             //检查ack
             if (baseFileSeq != nextFileSeq+1){
                 //发生错误
-                System.out.println("服务器：ack错误，收到的消息为："+fromServer+"期望ack为:"+(nextFileSeq)+"，重新发送");
+                System.out.println("服务器：当前最高ACK："+ack+"期望ack为:"+(nextFileSeq)+"，重新发送");
                 //重新发送
                 resendWindow(ack);
             }
@@ -103,25 +109,6 @@ public class GBNServer implements Runnable{
             e.printStackTrace();
         } catch (InterruptedException e) {
             e.printStackTrace();
-        }
-    }
-
-    class ReceiveThread implements Runnable{
-        private DatagramPacket datagramPacket;
-        private DatagramSocket datagramSocket;
-
-        public ReceiveThread(DatagramPacket datagramPacket, DatagramSocket datagramSocket) {
-            this.datagramPacket = datagramPacket;
-            this.datagramSocket = datagramSocket;
-        }
-
-        @Override
-        public void run() {
-            try {
-                datagramSocket.receive(datagramPacket);
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
         }
     }
 }
