@@ -84,7 +84,8 @@ public class GBNServer implements Runnable{
                 }
                 if(ack==8){
                     System.out.println("文件传输完成");
-                    System.exit(0);
+                    send("@:-1".getBytes());
+                    return;
                 }
 
             }

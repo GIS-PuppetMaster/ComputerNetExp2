@@ -10,7 +10,7 @@ public class Main {
         //构造要发送的文件
         ArrayList<byte[]> file = new ArrayList<>();
         for(int i=0;i<10;i++){
-            String context = "文件编号:"+i;
+            String context = "@:"+i;
             file.add(context.getBytes());
         }
         new Thread(new GBNServer(file)).start();
